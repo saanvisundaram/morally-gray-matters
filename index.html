@@ -1,0 +1,454 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yes / No Quiz</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #101827;
+    --panel: #1b2638;
+    --muted: #aab7ca;
+    --blue: #60a5fa;
+    --green: #16834a;
+    --red: #b92c3c;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: #f8fafc;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  main {
+    width: min(900px, 100%);
+    min-height: 100vh;
+    margin: auto;
+    padding: 28px 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .card {
+    background: var(--panel);
+    padding: clamp(22px, 5vw, 48px);
+    border-radius: 20px;
+    box-shadow: 0 15px 45px #0003;
+  }
+
+  h1 { font-size: clamp(2rem, 5vw, 3.2rem); margin: 0 0 12px; }
+  p { line-height: 1.6; }
+  .muted { color: var(--muted); }
+  label { display: block; margin: 18px 0 7px; font-weight: 650; }
+
+  input {
+    width: 100%;
+    padding: 15px;
+    border-radius: 9px;
+    border: 1px solid #516079;
+    background: #111b2b;
+    color: white;
+    font-size: 1.05rem;
+  }
+
+  button {
+    cursor: pointer;
+    color: white;
+    font: inherit;
+    font-weight: 750;
+    border: 0;
+    border-radius: 12px;
+    padding: 17px 22px;
+    transition: filter .15s, transform .15s;
+  }
+
+  button:hover { filter: brightness(1.13); }
+  button:active { transform: scale(.98); }
+  button:focus-visible, input:focus-visible {
+    outline: 3px solid var(--blue);
+    outline-offset: 3px;
+  }
+
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .primary { background: #2563eb; width: 100%; margin-top: 24px; }
+  .answers { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 32px; }
+  .yes { background: var(--green); font-size: clamp(1.3rem, 4vw, 2rem); min-height: 100px; }
+  .no { background: var(--red); font-size: clamp(1.3rem, 4vw, 2rem); min-height: 100px; }
+  .key { display: block; font-size: .8rem; font-weight: 500; opacity: .85; margin-top: 5px; }
+  .topline { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: .95rem; }
+  .track { height: 7px; border-radius: 20px; background: #354258; overflow: hidden; margin: 18px 0 30px; }
+  .fill { height: 100%; background: var(--blue); width: 0; transition: width .2s; }
+  #question { font-size: clamp(1.8rem, 5vw, 3rem); line-height: 1.3; text-align: center; overflow-wrap: anywhere; margin: 45px 0; }
+  .error { color: #fca5a5; }
+  .success { color: #86efac; }
+  .hidden { display: none !important; }
+  .note { font-size: .9rem; color: var(--muted); }
+  .center { text-align: center; }
+  .notice { padding: 14px; border-radius: 10px; background: #111b2b; margin-top: 20px; }
+
+  @media (max-width: 500px) {
+    main { padding: 12px; }
+    .card { padding: 23px 17px; }
+    .answers { gap: 10px; }
+    .yes, .no { min-height: 85px; }
+    #question { margin: 32px 0; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <section id="setup" class="card">
+    <p class="muted">PARTICIPANT QUIZ</p>
+    <h1>Yes / No Quiz</h1>
+    <p class="muted">Enter your name and assigned ID before beginning. Answer every question.</p>
+
+    <form id="participantForm">
+      <label for="name">Full name</label>
+      <input id="name" name="name" maxlength="120"
+        autocomplete="name" required>
+
+      <label for="participantId">Assigned ID</label>
+      <input id="participantId" name="participantId" maxlength="80"
+        autocomplete="off" required>
+
+      <p id="loadStatus" class="note">Loading questions…</p>
+      <p id="setupError" class="error" role="alert"></p>
+      <button class="primary" id="startButton" disabled>Start quiz</button>
+    </form>
+    <p class="note">Your answers will be recorded when you submit the completed quiz.</p>
+  </section>
+
+  <section id="quiz" class="card hidden">
+    <div class="topline">
+      <span id="participantLabel"></span>
+      <span id="counter"></span>
+    </div>
+    <div class="track"><div id="progress" class="fill"></div></div>
+
+    <h1 id="question">Question</h1>
+
+    <div class="answers">
+      <button type="button" class="yes" id="yesButton">
+        YES <span class="key">Press Y</span>
+      </button>
+      <button type="button" class="no" id="noButton">
+        NO <span class="key">Press N</span>
+      </button>
+    </div>
+    <p class="note center">Your answer advances to the next question immediately.</p>
+  </section>
+
+  <section id="finished" class="card hidden center">
+    <h1 id="finishedTitle">Quiz complete</h1>
+    <p id="finishedMessage"></p>
+    <p id="submitStatus" role="status" aria-live="polite"></p>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+// Replace this with the URL of your deployed Google Apps Script web app.
+const SUBMISSION_URL =
+  "https://script.google.com/macros/s/AKfycbxAGJmWcOrzlndJ0lttIwd-RBQmp4hqDHfy9Dnpb8Z8jwG_BIyDBCo33wqzlN8RfHnRUA/exec";
+
+const QUESTIONS_URL = new URL("questions.csv", window.location.href);
+
+let questions = [];
+let answers = [];
+let current = 0;
+let participant = { name: "", id: "" };
+let started = false;
+let submitting = false;
+let attemptToken = "";
+
+const $ = id => document.getElementById(id);
+
+function showOnly(id) {
+  ["setup", "quiz", "finished"].forEach(section =>
+    $(section).classList.toggle("hidden", section !== id)
+  );
+}
+
+function parseCSV(text) {
+  // Supports quoted fields, commas and line breaks inside quoted fields.
+  const rows = [];
+  let row = [], field = "", quoted = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+
+    if (quoted) {
+      if (c === '"' && text[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (c === '"') {
+        quoted = false;
+      } else {
+        field += c;
+      }
+    } else if (c === '"' && field === "") {
+      quoted = true;
+    } else if (c === ",") {
+      row.push(field);
+      field = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(field);
+      if (row.some(v => v.trim() !== "")) rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += c;
+    }
+  }
+
+  if (quoted) throw new Error("The questions CSV has an unclosed quote.");
+  row.push(field);
+  if (row.some(v => v.trim() !== "")) rows.push(row);
+
+  return rows;
+}
+
+async function loadQuestions() {
+  try {
+    const response = await fetch(QUESTIONS_URL, { cache: "no-store" });
+    if (!response.ok) throw new Error("Could not load questions.csv.");
+
+    const rows = parseCSV((await response.text()).replace(/^\uFEFF/, ""));
+    if (!rows.length ||
+        rows[0][0]?.trim().toLowerCase() !== "id" ||
+        rows[0][1]?.trim().toLowerCase() !== "question") {
+      throw new Error("CSV headers must be id,question.");
+    }
+
+    questions = rows.slice(1).map(r => ({
+      id: (r[0] || "").trim(),
+      text: (r[1] || "").trim()
+    }));
+
+    if (!questions.length || questions.some(q => !q.id || !q.text)) {
+      throw new Error("Every question needs both an ID and question text.");
+    }
+
+    const ids = questions.map(q => q.id);
+    if (new Set(ids).size !== ids.length) {
+      throw new Error("Question IDs must be unique.");
+    }
+
+    $("loadStatus").textContent =
+      `${questions.length} questions loaded.`;
+    $("startButton").disabled = false;
+  } catch (error) {
+    $("loadStatus").textContent = "Questions could not be loaded.";
+    $("setupError").textContent =
+      error.message + " Check that questions.csv is in your repository.";
+  }
+}
+
+function renderQuestion() {
+  $("counter").textContent = `Question ${current + 1} / ${questions.length}`;
+  $("progress").style.width = `${current / questions.length * 100}%`;
+  $("question").textContent = questions[current].text;
+  $("yesButton").disabled = false;
+  $("noButton").disabled = false;
+}
+
+function answer(value) {
+  if (!started || submitting || current >= questions.length) return;
+
+  answers.push(value);
+  current++;
+
+  if (current === questions.length) {
+    finishQuiz();
+  } else {
+    renderQuestion();
+  }
+}
+
+function finishQuiz() {
+  started = false;
+  submitting = true;
+  showOnly("finished");
+  $("finishedTitle").textContent = "Quiz complete!";
+  $("finishedMessage").textContent =
+    `Thank you, ${participant.name}. You answered all ${questions.length} questions.`;
+  $("submitStatus").textContent = "Submitting your answers…";
+  $("submitStatus").className = "";
+
+  sendSubmission();
+}
+
+function jsonpStatus(token) {
+  return new Promise((resolve, reject) => {
+    const callback = "__quizStatus_" +
+      Math.random().toString(36).slice(2);
+
+    const script = document.createElement("script");
+    let settled = false;
+
+    const cleanup = () => {
+      delete window[callback];
+      script.remove();
+    };
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error("Status check timed out."));
+    }, 7000);
+
+    window[callback] = data => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cleanup();
+      reject(new Error("Could not check submission status."));
+    };
+
+    const url = new URL(SUBMISSION_URL);
+    url.searchParams.set("action", "status");
+    url.searchParams.set("token", token);
+    url.searchParams.set("callback", callback);
+    script.src = url.toString();
+    document.head.appendChild(script);
+  });
+}
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function sendSubmission() {
+  if (!SUBMISSION_URL.startsWith("https://script.google.com/")) {
+    $("submitStatus").textContent =
+      "Setup incomplete: add your deployed Apps Script URL to index.html.";
+    $("submitStatus").className = "error";
+    submitting = false;
+    return;
+  }
+
+  attemptToken = crypto.randomUUID();
+
+  const payload = {
+    token: attemptToken,
+    name: participant.name,
+    id: participant.id,
+    questions: questions,
+    answers: answers
+  };
+
+  try {
+    // text/plain avoids a cross-origin preflight request.
+    // no-cors means the POST response itself cannot be read.
+    // We confirm completion separately using the status endpoint.
+    await fetch(SUBMISSION_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
+      body: JSON.stringify(payload)
+    });
+
+    for (let i = 0; i < 18; i++) {
+      await sleep(1200);
+
+      try {
+        const result = await jsonpStatus(attemptToken);
+
+        if (result.state === "ok") {
+          $("submitStatus").textContent =
+            "Your answers have been saved successfully. You may close this page.";
+          $("submitStatus").className = "success";
+          return;
+        }
+
+        if (result.state === "duplicate") {
+          $("submitStatus").textContent =
+            "This ID has already submitted a quiz. Please contact the organizer.";
+          $("submitStatus").className = "error";
+          return;
+        }
+
+        if (result.state === "error") {
+          $("submitStatus").textContent =
+            "Your submission was rejected: " + (result.message || "check with the organizer");
+          $("submitStatus").className = "error";
+          return;
+        }
+      } catch (_) {
+        // Retry status checks without resubmitting the answers.
+      }
+    }
+
+    $("submitStatus").textContent =
+      "We could not confirm the save. Do not retake the quiz yet; contact the organizer to check the spreadsheet.";
+    $("submitStatus").className = "error";
+  } catch (_) {
+    $("submitStatus").textContent =
+      "The submission could not be sent. Contact the organizer before trying again.";
+    $("submitStatus").className = "error";
+  }
+}
+
+$("participantForm").addEventListener("submit", event => {
+  event.preventDefault();
+  if (!questions.length || started) return;
+
+  if (SUBMISSION_URL.includes("PASTE_YOUR")) {
+    $("setupError").textContent =
+      "The organizer needs to configure the submission URL first.";
+    return;
+  }
+
+  participant.name = $("name").value.trim();
+  participant.id = $("participantId").value.trim();
+
+  if (!participant.name || !participant.id) return;
+
+  answers = [];
+  current = 0;
+  started = true;
+  $("participantLabel").textContent = participant.name;
+  showOnly("quiz");
+  renderQuestion();
+});
+
+$("yesButton").addEventListener("click", () => answer("Yes"));
+$("noButton").addEventListener("click", () => answer("No"));
+
+document.addEventListener("keydown", event => {
+  if (!started || submitting || event.repeat || event.altKey ||
+      event.ctrlKey || event.metaKey) return;
+
+  // Do not intercept typing in text fields.
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(
+      document.activeElement?.tagName)) return;
+
+  if (event.key.toLowerCase() === "y") {
+    event.preventDefault();
+    answer("Yes");
+  } else if (event.key.toLowerCase() === "n") {
+    event.preventDefault();
+    answer("No");
+  }
+});
+
+loadQuestions();
+</script>
+</body>
+</html>
