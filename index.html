@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Yes / No Quiz</title>
+<title>Moral Dilemmas</title>
 <style>
   :root {
     color-scheme: dark;
@@ -178,16 +178,16 @@
 <body>
 <main>
   <section id="setup" class="card">
-    <p class="muted">PARTICIPANT QUIZ</p>
-    <h1>Yes / No Quiz</h1>
-    <p class="muted">Enter your name and assigned ID before beginning. Answer every question.</p>
+    <p class="muted">Welcome!</p>
+    <h1>Moral Dilemmas</h1>
+    <p class="muted">Enter your full name and your gt username (ex: Jane Doe; jdoe123</p>
 
     <form id="participantForm">
-      <label for="name">Full name</label>
+      <label for="name">Full name (ex: Jane Doe)</label>
       <input id="name" name="name" maxlength="120"
         autocomplete="name" required>
 
-      <label for="participantId">Assigned ID</label>
+      <label for="participantId">ID (ex: jdoe123)</label>
       <input id="participantId" name="participantId" maxlength="80"
         autocomplete="off" required>
 
@@ -195,7 +195,7 @@
       <p id="setupError" class="error" role="alert"></p>
       <button class="primary" id="startButton" disabled>Start quiz</button>
     </form>
-    <p class="note">Your answers will be recorded when you submit the completed quiz.</p>
+    <p class="note">How fast you answer does not matter, please answer each question carefully!</p>
   </section>
 
   <section id="quiz" class="card hidden">
