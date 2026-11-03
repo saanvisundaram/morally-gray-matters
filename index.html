@@ -99,7 +99,7 @@
 
       <label>
         <input type="checkbox" id="comparisonOptIn" name="comparisonOptIn">
-        Would you like to see how you compare to other people and Teachers who took this test?
+        Would you like to see how you compare to other people and LLMs who took this test?
       </label>
       <p class="note">If you opt in, your answers will be included in the anonymous comparison group. People viewing the chart will not see participant names or IDs.</p>
 
@@ -131,7 +131,7 @@
       <p class="note">Each point represents a response pattern. The horizontal axis is the percentage of questions answered YES. The vertical axis is the percentage of answers matching yours. These are response-pattern comparisons, not a measure of how moral someone is.</p>
       <div class="legend">
         <span><i></i> Other opted-in participants</span>
-        <span><i class="llm-key"></i> Teacher / LLM responses</span>
+        <span><i class="llm-key"></i>LLM responses</span>
         <span><i class="self-key"></i> You</span>
       </div>
       <div id="comparisonChart"></div>
@@ -285,7 +285,7 @@ function drawComparisonChart(comparison) {
       opacity: isSelf ? 1 : .82
     });
     const title = document.createElementNS(ns, "title");
-    title.textContent = `${point.label || (isSelf ? "You" : isLLM ? "Teacher / LLM" : "Other participant")}: ${Math.round(Number(point.yesRate) || 0)}% YES; ${Math.round(Number(point.similarity) || 0)}% similar`;
+    title.textContent = `${point.label || (isSelf ? "You" : isLLM ? "LLM" : "Other participant")}: ${Math.round(Number(point.yesRate) || 0)}% YES; ${Math.round(Number(point.similarity) || 0)}% similar`;
     mark.appendChild(title);
   });
   container.replaceChildren(svg);
@@ -293,15 +293,15 @@ function drawComparisonChart(comparison) {
   const closest = comparison?.closestLLM;
   if (closest && closest.name) {
     $("comparisonSummary").textContent =
-      `Your closest Teacher / LLM response pattern is ${closest.name} (${Math.round(Number(closest.similarity) || 0)}% of answers match).`;
+      `Your closest LLM response pattern is ${closest.name} (${Math.round(Number(closest.similarity) || 0)}% of answers match).`;
   } else {
     $("comparisonSummary").textContent =
-      "Your comparison chart is shown above. A closest Teacher / LLM match was not returned.";
+      "Your comparison chart is shown above. A closest LLM match was not returned.";
   }
   const humanCount = Number(comparison?.humanCount);
   $("comparisonNote").textContent = Number.isFinite(humanCount)
     ? (humanCount === 0
-      ? "There are not yet any other opted-in participant responses to compare. The Teacher / LLM points are shown where available."
+      ? "There are not yet any other opted-in participant responses to compare. The LLM points are shown where available."
       : `The chart includes ${humanCount} other opted-in participant response${humanCount === 1 ? "" : "s"}.`)
     : "";
   $("comparisonResults").classList.remove("hidden");
