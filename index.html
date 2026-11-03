@@ -162,6 +162,32 @@
     margin-top: 20px;
   }
 
+  .llm-score {
+    margin: 22px 0;
+  }
+  
+  .llm-score-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 7px;
+    font-size: 1rem;
+  }
+  
+  .llm-bar {
+    height: 14px;
+    background: #444444;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  
+  .llm-bar-fill {
+    height: 100%;
+    background: #bdbdbd;
+    border-radius: 20px;
+    transition: width .5s ease;
+  }
+
   @media (max-width: 500px) {
     main { padding: 12px; }
     .card { padding: 23px 17px; }
@@ -236,10 +262,15 @@
     <p class="note center">Your answer advances to the next question immediately.</p>
   </section>
 
-  <section id="finished" class="card hidden center">
-    <h1 id="finishedTitle">Quiz complete</h1>
-    <p id="finishedMessage"></p>
-    <p id="submitStatus" role="status" aria-live="polite"></p>
+  <section id="finished" class="card hidden">
+    <h1 id="finishedTitle" class="center">Quiz complete</h1>
+    <p id="finishedMessage" class="center"></p>
+    <p id="submitStatus" class="center" role="status" aria-live="polite"></p>
+  
+    <div id="teacherResults" class="hidden">
+      <h2 class="center">How You Compare to Your Teachers</h2>
+      <div id="teacherScores"></div>
+    </div>
   </section>
 </main>
 
@@ -379,6 +410,48 @@ function answer(value) {
   }
 }
 
+function displayLLMScores(scores) {
+  const results = $("llmScores");
+  results.innerHTML = "";
+
+  scores.forEach(score => {
+    const percentage = Math.max(
+      0,
+      Math.min(100, Number(score.percentage) || 0)
+    );
+
+    const container = document.createElement("div");
+    container.className = "llm-score";
+
+    const label = document.createElement("div");
+    label.className = "llm-score-label";
+
+    const name = document.createElement("span");
+    name.textContent = score.llm;
+
+    const percent = document.createElement("span");
+    percent.textContent = percentage + "%";
+
+    label.appendChild(name);
+    label.appendChild(percent);
+
+    const bar = document.createElement("div");
+    bar.className = "llm-bar";
+
+    const fill = document.createElement("div");
+    fill.className = "llm-bar-fill";
+    fill.style.width = percentage + "%";
+
+    bar.appendChild(fill);
+    container.appendChild(label);
+    container.appendChild(bar);
+
+    results.appendChild(container);
+  });
+
+  $("llmResults").classList.remove("hidden");
+}
+  
 function finishQuiz() {
   started = false;
   submitting = true;
@@ -481,8 +554,13 @@ async function sendSubmission() {
           console.log("LLM comparison scores:", llmScores);
         
           $("submitStatus").textContent =
-            "Your answers have been saved successfully. You may close this page.";
+            "Your answers have been saved successfully.";
           $("submitStatus").className = "success";
+        
+          if ($("comparisonOptIn").checked) {
+            displayLLMScores(llmScores);
+          }
+        
           return;
         }
 
