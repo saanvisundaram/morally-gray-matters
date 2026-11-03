@@ -180,16 +180,34 @@
   <section id="setup" class="card">
     <p class="muted">Welcome!</p>
     <h1>Moral Dilemmas</h1>
-    <p class="muted">Enter your full name and your gt username (ex: Jane Doe; jdoe123)</p>
+    <p class="muted">Please enter your initials and birthday.</p>
 
     <form id="participantForm">
-      <label for="name">Full name (ex: Jane Doe)</label>
-      <input id="name" name="name" maxlength="120"
-        autocomplete="name" required>
+      <label for="firstInitial">First Initial</label>
+      <input id="firstInitial" name="firstInitial"
+        maxlength="1" pattern="[A-Za-z]" autocomplete="off" required>
+    
+      <label for="lastInitial">Last Initial</label>
+      <input id="lastInitial" name="lastInitial"
+        maxlength="1" pattern="[A-Za-z]" autocomplete="off" required>
+    
+      <label for="birthday">Birthday (MMDD)</label>
+      <input id="birthday" name="birthday"
+        maxlength="4" inputmode="numeric"
+        pattern="(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])"
+        placeholder="MMDD (ex: 0101)" autocomplete="off" required>
 
-      <label for="participantId">ID (ex: jdoe123)</label>
-      <input id="participantId" name="participantId" maxlength="80"
-        autocomplete="off" required>
+      <label>
+        <input type="checkbox" id="psych4690" name="psych4690"
+          style="width:auto; margin-right:8px;">
+        Are you currently in PSYC4690?
+      </label>
+      
+      <label>
+        <input type="checkbox" id="comparisonOptIn" name="comparisonOptIn"
+          style="width:auto; margin-right:8px;">
+        Would you like to see how you compare to other people and Teachers who took this test?
+      </label>
 
       <p id="loadStatus" class="note">Loading questions…</p>
       <p id="setupError" class="error" role="alert"></p>
@@ -235,6 +253,7 @@ const SUBMISSION_URL =
 const QUESTIONS_URL = new URL("questions.csv", window.location.href);
 
 let questions = [];
+let originalQuestions = [];
 let answers = [];
 let current = 0;
 let participant = { name: "", id: "" };
@@ -307,6 +326,8 @@ async function loadQuestions() {
       text: (r[1] || "").trim()
     }));
 
+    originalQuestions = [...questions];
+
     if (!questions.length || questions.some(q => !q.id || !q.text)) {
       throw new Error("Every question needs both an ID and question text.");
     }
@@ -324,6 +345,17 @@ async function loadQuestions() {
     $("setupError").textContent =
       error.message + " Check that questions.csv is in your repository.";
   }
+}
+
+function shuffleQuestions(array) {
+  const shuffled = [...array];
+
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  return shuffled;
 }
 
 function renderQuestion() {
@@ -444,6 +476,10 @@ async function sendSubmission() {
         const result = await jsonpStatus(attemptToken);
 
         if (result.state === "ok") {
+          const llmScores = result.llmScores || [];
+        
+          console.log("LLM comparison scores:", llmScores);
+        
           $("submitStatus").textContent =
             "Your answers have been saved successfully. You may close this page.";
           $("submitStatus").className = "success";
@@ -488,15 +524,21 @@ $("participantForm").addEventListener("submit", event => {
     return;
   }
 
-  participant.name = $("name").value.trim();
-  participant.id = $("participantId").value.trim();
+  const firstInitial = $("firstInitial").value.trim().toLowerCase();
+  const lastInitial = $("lastInitial").value.trim().toLowerCase();
+  const birthday = $("birthday").value.trim();
+  
+  if (!firstInitial || !lastInitial || !birthday) return;
+  
+  participant.name = firstInitial + lastInitial;
+  participant.id = firstInitial + lastInitial + birthday;
 
-  if (!participant.name || !participant.id) return;
+  questions = shuffleQuestions(originalQuestions);
 
   answers = [];
   current = 0;
   started = true;
-  $("participantLabel").textContent = participant.name;
+  $("participantLabel").textContent = "Participant: " + participant.id;
   showOnly("quiz");
   renderQuestion();
 });
