@@ -62,6 +62,13 @@
   .legend .llm-key { background: #8bb8e8; }
   .legend .self-key { background: #f0c674; }
   .closest { margin-top: 18px; padding: 14px; background: #202020; border-radius: 10px; }
+  .question-differences { margin-top: 30px; }
+  .difference-list { display: grid; gap: 12px; margin-top: 16px; }
+  .difference-item { padding: 16px; border-radius: 10px; background: #202020; }
+  .difference-item h3 { margin: 0 0 10px; font-size: 1.05rem; line-height: 1.45; }
+  .difference-metrics { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: .9rem; }
+  .difference-metrics strong { color: #f2f2f2; }
+  .chart-point-label { font-size: 11px; font-family: Arial, sans-serif; paint-order: stroke; stroke: #292929; stroke-width: 3px; stroke-linejoin: round; }
   @media (max-width: 500px) {
     main { padding: 12px; }
     .card { padding: 23px 17px; }
@@ -137,6 +144,14 @@
       <div id="comparisonChart"></div>
       <p id="comparisonSummary" class="closest"></p>
       <p id="comparisonNote" class="note"></p>
+
+      <section class="question-differences" aria-labelledby="differencesHeading">
+        <h2 id="differencesHeading">Questions With the Most Disagreement</h2>
+        <p class="note">These are the questions where your answer differed most from the comparison responses. Disagreement is shown as the percentage of comparison responses that gave the other answer.</p>
+        <div id="questionDifferences" class="difference-list">
+          <p class="note">Question-level comparison data was not included in the response.</p>
+        </div>
+      </section>
     </div>
   </section>
 </main>
@@ -238,6 +253,62 @@ function answer(value) {
   else renderQuestion();
 }
 
+function renderQuestionDifferences(comparison) {
+  const container = $("questionDifferences");
+  const differences = Array.isArray(comparison?.questionDifferences)
+    ? comparison.questionDifferences
+    : [];
+
+  container.replaceChildren();
+  if (!differences.length) {
+    const note = document.createElement("p");
+    note.className = "note";
+    note.textContent = "Question-level results are not available yet. The Apps Script needs to return a questionDifferences array with each question's disagreement percentages.";
+    container.appendChild(note);
+    return;
+  }
+
+  const ranked = [...differences].sort((a, b) =>
+    Number(b.overallDisagreement ?? Math.max(
+      Number(b.humanDisagreement) || 0,
+      Number(b.llmDisagreement) || 0
+    )) - Number(a.overallDisagreement ?? Math.max(
+      Number(a.humanDisagreement) || 0,
+      Number(a.llmDisagreement) || 0
+    ))
+  );
+
+  ranked.slice(0, 10).forEach((item, index) => {
+    const card = document.createElement("article");
+    card.className = "difference-item";
+
+    const heading = document.createElement("h3");
+    const questionText = item.question || item.questionText || item.text ||
+      (item.questionId ? `Question ${item.questionId}` : `Question ${index + 1}`);
+    heading.textContent = `${index + 1}. ${questionText}`;
+    card.appendChild(heading);
+
+    const metrics = document.createElement("div");
+    metrics.className = "difference-metrics";
+    const addMetric = (label, value) => {
+      if (value === undefined || value === null || !Number.isFinite(Number(value))) return;
+      const span = document.createElement("span");
+      const strong = document.createElement("strong");
+      strong.textContent = `${Math.round(Number(value))}%`;
+      span.append(`${label}: `, strong);
+      metrics.appendChild(span);
+    };
+    addMetric("Other participants", item.humanDisagreement);
+    addMetric("LLMs", item.llmDisagreement);
+    addMetric("Overall", item.overallDisagreement);
+    if (!metrics.childNodes.length) {
+      metrics.textContent = "Disagreement percentages were not provided.";
+    }
+    card.append(metrics);
+    container.appendChild(card);
+  });
+}
+
 function drawComparisonChart(comparison) {
   const container = $("comparisonChart");
   const points = Array.isArray(comparison?.points) ? comparison.points : [];
@@ -288,7 +359,27 @@ function drawComparisonChart(comparison) {
     title.textContent = `${point.label || (isSelf ? "You" : isLLM ? "LLM" : "Other participant")}: ${Math.round(Number(point.yesRate) || 0)}% YES; ${Math.round(Number(point.similarity) || 0)}% similar`;
     mark.appendChild(title);
   });
+
+  // Put a visible name beside each LLM point; titles remain available on hover.
+  let llmLabelIndex = 0;
+  points.forEach(point => {
+    const type = String(point.type || "").toLowerCase();
+    if (!(type === "llm" || type === "teacher")) return;
+    const label = String(point.label || point.name || "LLM");
+    const offsets = [[10, -9], [10, 15], [-10, -9], [-10, 15]];
+    const [dx, dy] = offsets[llmLabelIndex++ % offsets.length];
+    element("text", {
+      x: x(point.yesRate) + dx,
+      y: y(point.similarity) + dy,
+      fill: "#a9d0f5",
+      "font-size": 11,
+      "text-anchor": dx < 0 ? "end" : "start",
+      class: "chart-point-label"
+    }, label);
+  });
+
   container.replaceChildren(svg);
+  renderQuestionDifferences(comparison);
 
   const closest = comparison?.closestLLM;
   if (closest && closest.name) {
