@@ -290,17 +290,27 @@ function renderQuestionDifferences(comparison) {
 
     const metrics = document.createElement("div");
     metrics.className = "difference-metrics";
-    const addMetric = (label, value) => {
+    const addMetric = (label, value, count) => {
       if (value === undefined || value === null || !Number.isFinite(Number(value))) return;
       const span = document.createElement("span");
       const strong = document.createElement("strong");
       strong.textContent = `${Math.round(Number(value))}%`;
-      span.append(`${label}: `, strong);
+      const denominator = Number(count);
+      const countText = Number.isFinite(denominator) && denominator > 0
+        ? ` (${denominator} response${denominator === 1 ? "" : "s"})`
+        : "";
+      span.append(`${label}: `, strong, countText);
       metrics.appendChild(span);
     };
-    addMetric("Other participants", item.humanDisagreement);
-    addMetric("LLMs", item.llmDisagreement);
-    addMetric("Overall", item.overallDisagreement);
+    addMetric("Other participants", item.humanDisagreement, item.humanCount);
+    addMetric("LLMs", item.llmDisagreement, item.llmCount);
+    addMetric("Overall", item.overallDisagreement, item.comparisonCount);
+    if (item.yourAnswer) {
+      const ownAnswer = document.createElement("p");
+      ownAnswer.className = "note";
+      ownAnswer.textContent = `Your answer: ${item.yourAnswer}`;
+      card.appendChild(ownAnswer);
+    }
     if (!metrics.childNodes.length) {
       metrics.textContent = "Disagreement percentages were not provided.";
     }
